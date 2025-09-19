@@ -7,8 +7,76 @@
     <link rel="stylesheet" href="./styles/style.css" />
 </head>
 <body>
-    <main></main>
+    <main class="app" data-app>
+        <header class="app__header" data-component="header">
+            <div class="app__header-main">
+                <h1 class="app__title">Othello</h1>
+                <p class="app__turn" data-current-player>現在の手番: -</p>
+            </div>
+            <dl class="scoreboard" data-scoreboard aria-label="スコア">
+                <div class="scoreboard__item scoreboard__item--black">
+                    <dt class="scoreboard__label">黒</dt>
+                    <dd class="scoreboard__value" data-score="black">0</dd>
+                </div>
+                <div class="scoreboard__item scoreboard__item--white">
+                    <dt class="scoreboard__label">白</dt>
+                    <dd class="scoreboard__value" data-score="white">0</dd>
+                </div>
+            </dl>
+        </header>
+
+        <section class="app__board" data-component="board" aria-label="オセロ盤">
+            <div class="board" role="grid" aria-label="オセロ盤" data-board></div>
+        </section>
+
+        <section class="app__controls" data-component="controls" aria-label="操作バー">
+            <button type="button" class="control-button" data-action="new-game">新規ゲーム</button>
+            <button type="button" class="control-button" data-action="switch-first-player">先手切替</button>
+            <button type="button" class="control-button" data-action="toggle-highlight">ハイライト切替</button>
+            <button type="button" class="control-button" data-action="undo">アンドゥ</button>
+        </section>
+
+        <footer class="app__footer" data-component="footer">
+            <small class="app__copyright">&copy; 2024 Othello Project</small>
+        </footer>
+
+        <dialog class="app-dialog" data-dialog="pass">
+            <form method="dialog" class="app-dialog__form">
+                <p class="app-dialog__message" data-pass-message>合法手がないため自動でパスしました。</p>
+                <menu class="app-dialog__actions">
+                    <button value="close" class="app-dialog__button" data-pass-close>OK</button>
+                </menu>
+            </form>
+        </dialog>
+
+        <dialog class="app-dialog" data-dialog="result">
+            <form method="dialog" class="app-dialog__form">
+                <header class="app-dialog__header">
+                    <h2 class="app-dialog__title">対局結果</h2>
+                </header>
+                <div class="app-dialog__body">
+                    <p class="app-dialog__summary" data-result-summary>勝敗情報がここに表示されます。</p>
+                    <dl class="app-dialog__scores">
+                        <div class="app-dialog__score app-dialog__score--black">
+                            <dt>黒</dt>
+                            <dd data-result-score="black">0</dd>
+                        </div>
+                        <div class="app-dialog__score app-dialog__score--white">
+                            <dt>白</dt>
+                            <dd data-result-score="white">0</dd>
+                        </div>
+                    </dl>
+                </div>
+                <menu class="app-dialog__actions">
+                    <button type="button" class="app-dialog__button" data-result-new-game>新規ゲーム</button>
+                    <button value="close" class="app-dialog__button">閉じる</button>
+                </menu>
+            </form>
+        </dialog>
+    </main>
     <script src="./scripts/game.js"></script>
+    <script src="./scripts/state.js"></script>
+    <script src="./scripts/ui.js"></script>
     <script src="./scripts/main.js"></script>
 </body>
 </html>
