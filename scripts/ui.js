@@ -141,6 +141,16 @@
 
         const cellGrid = buildBoard(boardElement, boardSize);
 
+        const liveRegions = {
+            status: mainElement.querySelector('[data-live-region="status"]'),
+            alert: mainElement.querySelector('[data-live-region="alert"]')
+        };
+
+        const liveRegionState = {
+            status: '',
+            alert: ''
+        };
+
         function getCellElement(row, col) {
             if (!Number.isInteger(row) || !Number.isInteger(col)) {
                 return null;
@@ -191,6 +201,58 @@
             boardElement.classList.toggle(CLASS_NAMES.highlightEnabled, Boolean(enabled));
         }
 
+        function focusCell(row, col) {
+            const cell = getCellElement(row, col);
+            if (!cell) {
+                console.error('Failed to focus cell for keyboard navigation:', { row, col });
+                return;
+            }
+            if (typeof cell.focus === 'function') {
+                try {
+                    cell.focus({ preventScroll: true });
+                } catch (error) {
+                    cell.focus();
+                }
+            }
+        }
+
+        function moveFocus(row, col, rowOffset, colOffset) {
+            const nextRow = Math.min(Math.max(row + rowOffset, 0), boardSize - 1);
+            const nextCol = Math.min(Math.max(col + colOffset, 0), boardSize - 1);
+            if (nextRow === row && nextCol === col) {
+                return;
+            }
+            focusCell(nextRow, nextCol);
+        }
+
+        function updateLiveRegion(element, message, key) {
+            if (!element || typeof message !== 'string') {
+                return;
+            }
+            const text = message.trim();
+            if (!text) {
+                return;
+            }
+            if (liveRegionState[key] === text) {
+                element.textContent = '';
+                try {
+                    void element.offsetWidth;
+                } catch (error) {
+                    // Ignore reflow errors silently.
+                }
+            }
+            liveRegionState[key] = text;
+            element.textContent = text;
+        }
+
+        function announceStatus(message) {
+            updateLiveRegion(liveRegions.status, message, 'status');
+        }
+
+        function announceAlert(message) {
+            updateLiveRegion(liveRegions.alert, message, 'alert');
+        }
+
         function setCellDisc(row, col, disc) {
             const cell = getCellElement(row, col);
             if (!cell) {
@@ -237,10 +299,15 @@
             if (row === null || col === null) {
                 return;
             }
-            controller.playMove(row, col);
+            try {
+                controller.playMove(row, col);
+            } catch (error) {
+                console.error('Failed to play move from pointer interaction:', error);
+            }
         }
 
         boardElement.addEventListener('click', handleBoardClick);
+        boardElement.addEventListener('keydown', handleBoardKeyDown);
 
         let latestState = initialState;
         let unsubscribe = null;
@@ -276,7 +343,8 @@
                         },
                         newGameButton: root.querySelector('[data-result-new-game]')
                     }
-                }
+                },
+                liveRegions
             },
             getCellElement,
             clearHighlights,
@@ -304,9 +372,11 @@
             }
             if (state.isGameOver) {
                 ui.elements.turnLabel.textContent = 'ゲーム終了';
+                announceStatus('ゲームが終了しました。');
                 return;
             }
             ui.elements.turnLabel.textContent = `現在の手番: ${formatPlayer(state.currentPlayer)}`;
+            announceStatus(`現在の手番は${formatPlayer(state.currentPlayer)}です。`);
         }
 
         function updateControls(state) {
@@ -354,7 +424,9 @@
             }
             const passedText = formatPlayer(passedPlayer);
             const nextText = formatPlayer(nextPlayer);
-            passDialog.message.textContent = `${passedText} は合法手がないためパスしました。次は ${nextText} の手番です。`;
+            const message = `${passedText} は合法手がないためパスしました。次は ${nextText} の手番です。`;
+            passDialog.message.textContent = message;
+            announceAlert(message);
             openDialog(passDialog.dialog);
         }
 
@@ -409,6 +481,7 @@
 
             closeDialog(dialogs.pass && dialogs.pass.dialog);
             openDialog(resultDialog.dialog);
+            announceAlert(message);
         }
 
         function handleNewGameClick() {
@@ -462,6 +535,57 @@
             dialogs.pass.closeButton.addEventListener('click', handlePassCloseClick);
         }
 
+        function handleBoardKeyDown(event) {
+            const { key } = event;
+            if (!key) {
+                return;
+            }
+
+            const target = event.target && event.target.closest('[data-cell]');
+            if (!target || !boardElement.contains(target)) {
+                return;
+            }
+
+            const row = toIndex(target.dataset.row);
+            const col = toIndex(target.dataset.col);
+
+            if (row === null || col === null) {
+                console.error('Invalid cell coordinates for keyboard input:', target.dataset);
+                return;
+            }
+
+            switch (key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    moveFocus(row, col, -1, 0);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    moveFocus(row, col, 1, 0);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    moveFocus(row, col, 0, -1);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    moveFocus(row, col, 0, 1);
+                    break;
+                case 'Enter':
+                case ' ': // Space key
+                case 'Spacebar':
+                    event.preventDefault();
+                    try {
+                        controller.playMove(row, col);
+                    } catch (error) {
+                        console.error('Failed to apply keyboard move:', error);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
         function handleStateChange(nextState) {
             const previousState = latestState;
             latestState = nextState;
@@ -510,6 +634,7 @@
 
         function destroyUI() {
             boardElement.removeEventListener('click', handleBoardClick);
+            boardElement.removeEventListener('keydown', handleBoardKeyDown);
             if (controls.newGame) {
                 controls.newGame.removeEventListener('click', handleNewGameClick);
             }
