@@ -119,9 +119,16 @@
                 return;
             }
 
+            if (state.scores && state.scores.empty === 0) {
+                state.currentPlayer = Game.getOpponent(previousPlayer);
+                state.legalMoves = [];
+                state.isGameOver = true;
+                return;
+            }
+
             let playerToCheck = Game.getOpponent(previousPlayer);
 
-            while (true) {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
                 const legalMoves = Game.findLegalMoves(state.board, playerToCheck);
                 if (legalMoves.length > 0) {
                     state.currentPlayer = playerToCheck;
@@ -132,16 +139,12 @@
 
                 state.consecutivePasses += 1;
                 recordPass(playerToCheck);
-
-                if (state.consecutivePasses >= 2 || Game.isGameOver(state.board)) {
-                    state.currentPlayer = playerToCheck;
-                    state.legalMoves = [];
-                    state.isGameOver = true;
-                    return;
-                }
-
                 playerToCheck = Game.getOpponent(playerToCheck);
             }
+
+            state.currentPlayer = playerToCheck;
+            state.legalMoves = [];
+            state.isGameOver = true;
         }
 
         function getState() {
