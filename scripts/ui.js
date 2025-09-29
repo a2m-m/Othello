@@ -132,14 +132,21 @@
         }
 
         const initialState = controller.getState() || {};
-        const boardSize = Array.isArray(initialState.board) ? initialState.board.length : 8;
+        let boardSize = Array.isArray(initialState.board) ? initialState.board.length : 8;
 
         boardElement.setAttribute('role', 'grid');
-        boardElement.setAttribute('aria-rowcount', String(boardSize));
-        boardElement.setAttribute('aria-colcount', String(boardSize));
-        boardElement.dataset.boardSize = String(boardSize);
 
-        const cellGrid = buildBoard(boardElement, boardSize);
+        function updateBoardSizeMetadata(size) {
+            const nextSize = Number.isInteger(size) && size > 0 ? size : boardSize;
+            boardElement.setAttribute('aria-rowcount', String(nextSize));
+            boardElement.setAttribute('aria-colcount', String(nextSize));
+            boardElement.dataset.boardSize = String(nextSize);
+            boardElement.style.setProperty('--board-size', String(nextSize));
+        }
+
+        updateBoardSizeMetadata(boardSize);
+
+        let cellGrid = buildBoard(boardElement, boardSize);
 
         const liveRegions = {
             status: mainElement.querySelector('[data-live-region="status"]'),
@@ -326,7 +333,8 @@
                     newGame: mainElement.querySelector('[data-action="new-game"]'),
                     switchFirstPlayer: mainElement.querySelector('[data-action="switch-first-player"]'),
                     toggleHighlight: mainElement.querySelector('[data-action="toggle-highlight"]'),
-                    undo: mainElement.querySelector('[data-action="undo"]')
+                    undo: mainElement.querySelector('[data-action="undo"]'),
+                    boardSize: mainElement.querySelector('[data-action="change-board-size"]')
                 },
                 dialogs: {
                     pass: {
@@ -356,6 +364,39 @@
 
         const controls = ui.elements.controls;
         const dialogs = ui.elements.dialogs;
+
+        if (controls.boardSize && typeof controller.getSupportedBoardSizes === 'function') {
+            const supportedSizes = controller.getSupportedBoardSizes();
+            if (Array.isArray(supportedSizes) && supportedSizes.length > 0) {
+                const normalizedSizes = Array.from(new Set(supportedSizes.filter((size) => Number.isInteger(size)))).sort((a, b) => a - b);
+                const supportedValues = new Set(normalizedSizes.map((size) => String(size)));
+
+                Array.from(controls.boardSize.options || []).forEach((option) => {
+                    if (!supportedValues.has(option.value)) {
+                        option.remove();
+                    }
+                });
+
+                const existingValues = new Set(Array.from(controls.boardSize.options || []).map((option) => option.value));
+                normalizedSizes.forEach((size) => {
+                    const value = String(size);
+                    if (!existingValues.has(value)) {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = `${size}×${size}`;
+                        controls.boardSize.appendChild(option);
+                    }
+                });
+
+                if (!supportedValues.has(controls.boardSize.value)) {
+                    controls.boardSize.value = String(boardSize);
+                }
+            }
+        }
+
+        if (controls.boardSize && !controls.boardSize.value) {
+            controls.boardSize.value = String(boardSize);
+        }
 
         function updateScores(scores) {
             if (ui.elements.score.black) {
@@ -388,6 +429,15 @@
             if (controls.switchFirstPlayer) {
                 const firstPlayer = state.settings ? state.settings.firstPlayer : null;
                 controls.switchFirstPlayer.textContent = `先手: ${formatPlayer(firstPlayer)}`;
+            }
+            if (controls.boardSize) {
+                const nextSize = state.settings && Number.isInteger(state.settings.boardSize)
+                    ? state.settings.boardSize
+                    : boardSize;
+                const sizeValue = String(nextSize);
+                if (controls.boardSize.value !== sizeValue) {
+                    controls.boardSize.value = sizeValue;
+                }
             }
         }
 
@@ -508,6 +558,28 @@
             controller.toggleHighlight();
         }
 
+        function handleBoardSizeChange(event) {
+            const target = event && event.target ? event.target : null;
+            if (!target) {
+                return;
+            }
+
+            const requestedSize = toIndex(target.value);
+            const fallbackSize = latestState && latestState.settings && Number.isInteger(latestState.settings.boardSize)
+                ? latestState.settings.boardSize
+                : boardSize;
+
+            if (requestedSize === null) {
+                target.value = String(fallbackSize);
+                return;
+            }
+
+            const applied = controller.setBoardSize(requestedSize);
+            if (!applied) {
+                target.value = String(fallbackSize);
+            }
+        }
+
         function handleUndoClick() {
             controller.undo();
         }
@@ -524,6 +596,9 @@
         }
         if (controls.toggleHighlight) {
             controls.toggleHighlight.addEventListener('click', handleToggleHighlightClick);
+        }
+        if (controls.boardSize) {
+            controls.boardSize.addEventListener('change', handleBoardSizeChange);
         }
         if (controls.undo) {
             controls.undo.addEventListener('click', handleUndoClick);
@@ -590,6 +665,14 @@
             const previousState = latestState;
             latestState = nextState;
 
+            const nextBoardSize = Array.isArray(nextState.board) ? nextState.board.length : boardSize;
+            if (Number.isInteger(nextBoardSize) && nextBoardSize > 0 && nextBoardSize !== boardSize) {
+                boardSize = nextBoardSize;
+                updateBoardSizeMetadata(boardSize);
+                cellGrid = buildBoard(boardElement, boardSize);
+                ui.elements.cells = cellGrid;
+            }
+
             renderBoard(nextState.board);
             updateScores(nextState.scores);
             updateTurn(nextState);
@@ -643,6 +726,9 @@
             }
             if (controls.toggleHighlight) {
                 controls.toggleHighlight.removeEventListener('click', handleToggleHighlightClick);
+            }
+            if (controls.boardSize) {
+                controls.boardSize.removeEventListener('change', handleBoardSizeChange);
             }
             if (controls.undo) {
                 controls.undo.removeEventListener('click', handleUndoClick);

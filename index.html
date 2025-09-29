@@ -34,6 +34,16 @@
         <section class="app__controls" data-component="controls" aria-label="操作バー">
             <button type="button" class="control-button" data-action="new-game">新規ゲーム</button>
             <button type="button" class="control-button" data-action="switch-first-player">先手切替</button>
+            <label class="control-select">
+                <span class="control-select__label">盤サイズ</span>
+                <div class="control-select__field">
+                    <select class="control-select__input" data-action="change-board-size">
+                        <option value="8" selected>8×8</option>
+                        <option value="10">10×10</option>
+                    </select>
+                    <span class="control-select__icon" aria-hidden="true">▼</span>
+                </div>
+            </label>
             <button type="button" class="control-button" data-action="toggle-highlight">ハイライト切替</button>
             <button type="button" class="control-button" data-action="undo">アンドゥ</button>
         </section>
