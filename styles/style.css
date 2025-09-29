@@ -217,7 +217,8 @@ main.app {
     border-radius: calc(var(--radius-large) * 0.9);
     padding: clamp(var(--space-3), 1.8vw, var(--space-6));
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(var(--board-size, 8), 1fr);
+    grid-template-rows: repeat(var(--board-size, 8), 1fr);
     gap: clamp(0.25rem, 1vw, 0.45rem);
     box-shadow: inset 0 0 0 2px var(--color-board-border), var(--shadow-hard);
     position: relative;
@@ -365,6 +366,52 @@ main.app {
 .app-dialog__button:active {
     transform: translateY(0);
     box-shadow: 0 8px 16px rgba(34, 197, 94, 0.25);
+}
+
+.control-select {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.control-select__label {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.control-select__field {
+    position: relative;
+}
+
+.control-select__input {
+    width: 100%;
+    min-height: 44px;
+    padding: var(--space-3) calc(var(--space-6) + 1.5rem) var(--space-3) var(--space-5);
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.88));
+    color: var(--color-text-primary);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    appearance: none;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.15);
+    cursor: pointer;
+}
+
+.control-select__input:hover,
+.control-select__input:focus-visible {
+    filter: brightness(1.05);
+}
+
+.control-select__icon {
+    position: absolute;
+    top: 50%;
+    right: var(--space-5);
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
 }
 
 .app__footer {

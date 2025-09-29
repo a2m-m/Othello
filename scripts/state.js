@@ -5,9 +5,27 @@
         ? require('./game.js')
         : global.OthelloGame;
 
+    const DEFAULT_BOARD_SIZE = Game && typeof Game.BOARD_SIZE === 'number' ? Game.BOARD_SIZE : 8;
+    const SUPPORTED_BOARD_SIZES = (function deriveSupportedSizes() {
+        const gameSupported = Game && Array.isArray(Game.SUPPORTED_BOARD_SIZES)
+            ? Game.SUPPORTED_BOARD_SIZES
+            : [];
+        const unique = new Set([DEFAULT_BOARD_SIZE, ...gameSupported, 10]);
+        return Object.freeze(Array.from(unique).sort((a, b) => a - b));
+    })();
+
+    function isSupportedBoardSize(size) {
+        return Number.isInteger(size) && SUPPORTED_BOARD_SIZES.includes(size);
+    }
+
+    function normalizeBoardSize(size) {
+        return isSupportedBoardSize(size) ? size : DEFAULT_BOARD_SIZE;
+    }
+
     const DEFAULT_SETTINGS = Object.freeze({
         firstPlayer: Game.BLACK,
-        highlightLegalMoves: true
+        highlightLegalMoves: true,
+        boardSize: DEFAULT_BOARD_SIZE
     });
 
     function cloneMove(move) {
@@ -31,7 +49,8 @@
     function cloneSettings(settings) {
         return {
             firstPlayer: settings.firstPlayer,
-            highlightLegalMoves: settings.highlightLegalMoves
+            highlightLegalMoves: settings.highlightLegalMoves,
+            boardSize: settings.boardSize
         };
     }
 
@@ -54,7 +73,8 @@
             firstPlayer: (customSettings && customSettings.firstPlayer) || base.firstPlayer,
             highlightLegalMoves: (customSettings && typeof customSettings.highlightLegalMoves === 'boolean')
                 ? customSettings.highlightLegalMoves
-                : base.highlightLegalMoves
+                : base.highlightLegalMoves,
+            boardSize: normalizeBoardSize(customSettings && customSettings.boardSize)
         };
 
         if (settings.firstPlayer !== Game.BLACK && settings.firstPlayer !== Game.WHITE) {
@@ -66,7 +86,7 @@
 
     function createNewGame(customSettings) {
         const settings = normalizeSettings(customSettings);
-        const board = Game.createInitialBoard();
+        const board = Game.createInitialBoard(settings.boardSize);
         const currentPlayer = settings.firstPlayer;
         const legalMoves = Game.findLegalMoves(board, currentPlayer);
         const scores = Game.countDiscs(board);
@@ -227,6 +247,23 @@
             return true;
         }
 
+        function setBoardSize(size) {
+            if (!isSupportedBoardSize(size)) {
+                return false;
+            }
+
+            if (state.settings.boardSize === size) {
+                return false;
+            }
+
+            reset({ boardSize: size });
+            return true;
+        }
+
+        function getSupportedBoardSizes() {
+            return SUPPORTED_BOARD_SIZES.slice();
+        }
+
         function onStateChange(listener) {
             if (typeof listener !== 'function') {
                 throw new Error('Listener must be a function.');
@@ -245,8 +282,10 @@
             undo: undoLastMove,
             toggleHighlight,
             setFirstPlayer,
+            setBoardSize,
             reset,
-            onStateChange
+            onStateChange,
+            getSupportedBoardSizes
         });
     }
 

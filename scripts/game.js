@@ -1,7 +1,8 @@
 (function (global) {
     'use strict';
 
-    const BOARD_SIZE = 8;
+    const DEFAULT_BOARD_SIZE = 8;
+    const SUPPORTED_BOARD_SIZES = Object.freeze([DEFAULT_BOARD_SIZE, 10]);
     const EMPTY = null;
     const BLACK = 'black';
     const WHITE = 'white';
@@ -29,8 +30,44 @@
         return PLAYERS.includes(player);
     }
 
-    function isOnBoard(row, col) {
-        return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
+    function normalizeBoardSize(size) {
+        if (!Number.isInteger(size)) {
+            return DEFAULT_BOARD_SIZE;
+        }
+
+        const uniqueSizes = SUPPORTED_BOARD_SIZES;
+        if (uniqueSizes.includes(size)) {
+            return size;
+        }
+
+        const sortedSizes = [...uniqueSizes].sort((a, b) => a - b);
+        const nearest = sortedSizes.reduce((closest, candidate) => {
+            if (closest === null) {
+                return candidate;
+            }
+            const currentDiff = Math.abs(candidate - size);
+            const closestDiff = Math.abs(closest - size);
+            if (currentDiff < closestDiff) {
+                return candidate;
+            }
+            if (currentDiff === closestDiff && candidate < closest) {
+                return candidate;
+            }
+            return closest;
+        }, null);
+
+        return nearest !== null ? nearest : DEFAULT_BOARD_SIZE;
+    }
+
+    function getBoardSize(board) {
+        if (Array.isArray(board)) {
+            return board.length;
+        }
+        return DEFAULT_BOARD_SIZE;
+    }
+
+    function isOnBoard(row, col, boardSize) {
+        return row >= 0 && row < boardSize && col >= 0 && col < boardSize;
     }
 
     function getOpponent(player) {
@@ -47,9 +84,10 @@
         return board.map((row) => row.slice());
     }
 
-    function createInitialBoard() {
-        const board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
-        const mid = BOARD_SIZE / 2;
+    function createInitialBoard(size) {
+        const boardSize = normalizeBoardSize(size || DEFAULT_BOARD_SIZE);
+        const board = Array.from({ length: boardSize }, () => Array(boardSize).fill(EMPTY));
+        const mid = boardSize / 2;
         board[mid - 1][mid - 1] = WHITE;
         board[mid][mid] = WHITE;
         board[mid - 1][mid] = BLACK;
@@ -66,7 +104,9 @@
         }
 
         const { row, col } = position;
-        if (!isOnBoard(row, col) || board[row][col] !== EMPTY) {
+        const boardSize = getBoardSize(board);
+
+        if (!isOnBoard(row, col, boardSize) || board[row][col] !== EMPTY) {
             return [];
         }
 
@@ -78,7 +118,7 @@
             let currentCol = col + direction.col;
             const discsToFlip = [];
 
-            while (isOnBoard(currentRow, currentCol) && board[currentRow][currentCol] === opponent) {
+            while (isOnBoard(currentRow, currentCol, boardSize) && board[currentRow][currentCol] === opponent) {
                 discsToFlip.push({ row: currentRow, col: currentCol });
                 currentRow += direction.row;
                 currentCol += direction.col;
@@ -88,7 +128,7 @@
                 continue;
             }
 
-            if (isOnBoard(currentRow, currentCol) && board[currentRow][currentCol] === player) {
+            if (isOnBoard(currentRow, currentCol, boardSize) && board[currentRow][currentCol] === player) {
                 flipped.push(...discsToFlip);
             }
         }
@@ -102,9 +142,10 @@
         }
 
         const legalMoves = [];
+        const boardSize = getBoardSize(board);
 
-        for (let row = 0; row < BOARD_SIZE; row += 1) {
-            for (let col = 0; col < BOARD_SIZE; col += 1) {
+        for (let row = 0; row < boardSize; row += 1) {
+            for (let col = 0; col < boardSize; col += 1) {
                 if (board[row][col] !== EMPTY) {
                     continue;
                 }
@@ -161,7 +202,7 @@
     }
 
     function isBoardFull(board) {
-        return board.every((row) => row.every((cell) => cell !== EMPTY));
+        return board.every((row) => Array.isArray(row) && row.every((cell) => cell !== EMPTY));
     }
 
     function isGameOver(board) {
@@ -174,7 +215,10 @@
     }
 
     const api = Object.freeze({
-        BOARD_SIZE,
+        BOARD_SIZE: DEFAULT_BOARD_SIZE,
+        SUPPORTED_BOARD_SIZES,
+        normalizeBoardSize,
+        getBoardSize,
         DIRECTIONS,
         DISC,
         BLACK,
@@ -196,7 +240,7 @@
     }
 
     function runSelfCheck() {
-        const initialBoard = createInitialBoard();
+        const initialBoard = createInitialBoard(DEFAULT_BOARD_SIZE);
         console.assert(initialBoard[3][3] === WHITE && initialBoard[3][4] === BLACK, '初期配置が正しく生成されていること');
         console.assert(initialBoard[4][3] === BLACK && initialBoard[4][4] === WHITE, '初期配置が正しく生成されていること (対角)');
 
@@ -210,7 +254,7 @@
         console.assert(boardAfterBlack[3][3] === BLACK, '反転対象の石が黒に変化していること');
         console.assert(initialBoard[3][3] === WHITE, '元の盤面が破壊されていないこと');
 
-        const edgeBoard = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(WHITE));
+        const edgeBoard = Array.from({ length: DEFAULT_BOARD_SIZE }, () => Array(DEFAULT_BOARD_SIZE).fill(WHITE));
         edgeBoard[0][0] = EMPTY;
         edgeBoard[0][1] = WHITE;
         edgeBoard[0][2] = WHITE;
@@ -224,7 +268,7 @@
         console.assert(afterCorner[0][1] === BLACK && afterCorner[1][0] === BLACK, '角への着手で端の石が反転すること');
         console.assert(edgeBoard[0][1] === WHITE && edgeBoard[1][0] === WHITE, '角テストでも元の盤面が変更されないこと');
 
-        const passBoard = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(WHITE));
+        const passBoard = Array.from({ length: DEFAULT_BOARD_SIZE }, () => Array(DEFAULT_BOARD_SIZE).fill(WHITE));
         passBoard[7][7] = EMPTY;
         passBoard[7][6] = BLACK;
         passBoard[7][5] = WHITE;
@@ -236,10 +280,16 @@
         console.assert(whiteLegal.some((move) => move.row === 7 && move.col === 7), '同じ局面で白には合法手が存在すること');
         console.assert(isGameOver(passBoard) === false, '双方に合法手がない場合のみ終局と判定すること');
 
-        const fullBoard = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(BLACK));
+        const fullBoard = Array.from({ length: DEFAULT_BOARD_SIZE }, () => Array(DEFAULT_BOARD_SIZE).fill(BLACK));
         console.assert(isGameOver(fullBoard) === true, '盤が埋まれば終局判定になること');
         const counts = countDiscs(fullBoard);
-        console.assert(counts[BLACK] === BOARD_SIZE * BOARD_SIZE && counts[WHITE] === 0 && counts.empty === 0, '石数カウントが正しいこと');
+        console.assert(counts[BLACK] === DEFAULT_BOARD_SIZE * DEFAULT_BOARD_SIZE && counts[WHITE] === 0 && counts.empty === 0, '石数カウントが正しいこと');
+
+        const largeBoard = createInitialBoard(10);
+        console.assert(largeBoard.length === 10 && largeBoard.every((row) => row.length === 10), '10×10 盤が生成されること');
+        const center = 10 / 2;
+        console.assert(largeBoard[center - 1][center - 1] === WHITE && largeBoard[center][center] === WHITE, '拡大盤でも初期配置の白石が正しいこと');
+        console.assert(largeBoard[center - 1][center] === BLACK && largeBoard[center][center - 1] === BLACK, '拡大盤でも初期配置の黒石が正しいこと');
     }
 
     runSelfCheck();
